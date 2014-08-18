@@ -1,7 +1,5 @@
 package com.mygdx.game;
 
-import java.util.Iterator;
-
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
@@ -11,12 +9,11 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Pool;
@@ -28,21 +25,29 @@ public class BubbleDemo extends ApplicationAdapter {
 	Texture backGround;
 	TextureRegion defaultImage;
 	Texture bubbleImage;
+	Texture lifeImage;
 	TextureRegion spikeImage;
 	Sound popSound;
 	Music backMusic;
+	Music startMusic;
+	Music playerHitSound;
+	Music popMusic;
+	Music upLevelMusic;
 	Rectangle avatar;
 	Spike spike;
 	Vector3 touchPos;
 	Array<Bubble> bubbleArr;
 	Pool<Bubble> bubblePool;
 	boolean isAnyBubbleAlive;
-	public int freeBubIndex = 0;
-	int diffLevel = 0;
+	boolean secondFingerTouching;
+	int diffLevel = 1;
 	float deltaTime;
-	private static final int STAND_FRAME_COLS = 7;
-	private static final int STAND_FRAME_ROWS = 2;
-	
+	int life = 3;
+	int score;
+	String scoreStr;
+	BitmapFont scoreFont;
+	boolean firstLoad = false;
+
 	TextureRegion[] spikeFrames;
 	Animation spikeAnimation;
 	Animation walkLeftAnimation;
@@ -59,41 +64,57 @@ public class BubbleDemo extends ApplicationAdapter {
 
 	@Override
 	public void create() {
-		batch = new SpriteBatch();
-		backGround = new Texture(Gdx.files.internal("images/BG.JPG"));
-		bubbleImage = new Texture(Gdx.files.internal("images/29.png"));
-		camera = new OrthographicCamera();
-		camera.setToOrtho(false, 800, 480);
-		touchPos = new Vector3();
-		bubblePool = new Pool<Bubble>() {
-
-			@Override
-			protected Bubble newObject() {
-				return new Bubble();
-			}
-
-		};
-		bubbleArr = new Array<Bubble>(40);
-		int count = 0;
-		while (count < 4) {
-			bubbleArr.add(bubblePool.obtain());
-			count++;
+		if (life < 1) {
+			backMusic.play();
+			life = 3;
+			score = 0;
 		}
-		isAnyBubbleAlive = true;
-		freeBubIndex = 1;
-		spike = new Spike();
-		spike.isAlive = false;
-		createAnimations();
+		if (!firstLoad) {
+			playerHitSound = Gdx.audio.newMusic(Gdx.files
+					.internal("sounds/player_hit.mp3"));
+			startMusic = Gdx.audio.newMusic(Gdx.files
+					.internal("sounds/startSound.mp3"));
+			backMusic = Gdx.audio.newMusic(Gdx.files
+					.internal("sounds/backMusic.mp3"));
+			upLevelMusic = Gdx.audio.newMusic(Gdx.files
+					.internal("sounds/gong.mp3"));
 
-		avatar = new Rectangle();
-		avatar.x = 800 / 2 - 64 / 2;
+			popMusic = Gdx.audio
+					.newMusic(Gdx.files.internal("sounds/pop2.mp3"));
+			batch = new SpriteBatch();
+			backGround = new Texture(Gdx.files.internal("images/BG.JPG"));
+			lifeImage = new Texture(Gdx.files.internal("images/29.png"));
+			bubbleImage = new Texture(Gdx.files.internal("images/green1.png"));
+			camera = new OrthographicCamera();
+			spike = new Spike();
+			touchPos = new Vector3();
+			avatar = new Rectangle();
+			scoreFont = new BitmapFont();
+			scoreStr = new String();
+			createAnimations();
+			bubbleArr = new Array<Bubble>(40);
+			bubblePool = new Pool<Bubble>() {
+				@Override
+				protected Bubble newObject() {
+					return new Bubble();
+				}
+			};
+			startMusic.play();
+			firstLoad = true;
+		}
+		bubbleArr.clear();
+		bubblePool.clear();
+		bubbleArr.add(bubblePool.obtain());
+		diffLevel = 1;
+		isAnyBubbleAlive = true;
+		spike.isAlive = false;
+		camera.setToOrtho(false, 800, 480);
+		avatar.x = 800 / 2 - avatar.width / 2;
 		avatar.y = 58;
 		avatar.width = 36;
 		avatar.height = 56;
-		touchPos.x = avatar.x + 64 / 2;
+		touchPos.x = avatar.x + avatar.width;
 
-		// backMusic = Gdx.audio.newMusic(Gdx.files.internal("862_gong.mp3"));
-		// backMusic.play();
 	}
 
 	private void createAnimations() {
@@ -104,7 +125,7 @@ public class BubbleDemo extends ApplicationAdapter {
 			spikeFrames[i] = spikeatlas.findRegion("rope" + (i));
 		}
 		spikeAnimation = new Animation(0.045f, spikeFrames);
-		
+
 		TextureAtlas atlas = new TextureAtlas(
 				Gdx.files.internal("frames/textures.pack"));
 		TextureRegion[] walkLeftFrames = new TextureRegion[20];
@@ -120,18 +141,11 @@ public class BubbleDemo extends ApplicationAdapter {
 		}
 		walkRightAnimation = new Animation(0.033f, walkRightFrames);
 
-		int index = 0;
-		standSheet = new Texture(
-				Gdx.files.internal("frames/standing_animation_sheet.png"));
-		TextureRegion[][] tmp2 = TextureRegion.split(standSheet,
-				standSheet.getWidth() / STAND_FRAME_COLS,
-				standSheet.getHeight() / STAND_FRAME_ROWS);
-		standFrames = new TextureRegion[STAND_FRAME_COLS * STAND_FRAME_ROWS];
-		index = 0;
-		for (int i = 0; i < STAND_FRAME_ROWS; i++) {
-			for (int j = 0; j < STAND_FRAME_COLS; j++) {
-				standFrames[index++] = tmp2[i][j];
-			}
+		TextureAtlas standAtlas = new TextureAtlas(
+				Gdx.files.internal("frames/stand.pack"));
+		TextureRegion[] standFrames = new TextureRegion[26];
+		for (int i = 0; i < 26; i++) {
+			standFrames[i] = standAtlas.findRegion("" + (i));
 		}
 		standAnimation = new Animation(0.05f, standFrames);
 		defaultImage = standFrames[0];
@@ -145,15 +159,18 @@ public class BubbleDemo extends ApplicationAdapter {
 		currentFrame = defaultImage;
 		deltaTime = Gdx.graphics.getDeltaTime();
 		stateTime += deltaTime;
+		scoreStr = "" + score;
+		secondFingerTouching = Gdx.input.isTouched(1);
 		if (Gdx.input.isTouched()) {
 			touchPos.set(Gdx.input.getX(), 0, 0);
 			camera.unproject(touchPos);
 		}
-		if (Gdx.input.isKeyPressed(Keys.LEFT) || (avatar.x > (touchPos.x + 32))) {
+		if (Gdx.input.isKeyPressed(Keys.LEFT)
+				|| (avatar.x > (touchPos.x + avatar.width))) {
 			avatar.x -= 200 * deltaTime;
 			currentFrame = walkLeftAnimation.getKeyFrame(stateTime, true);
 		} else if (Gdx.input.isKeyPressed(Keys.RIGHT)
-				|| (avatar.x < (touchPos.x - 32))) {
+				|| (avatar.x < (touchPos.x - avatar.width))) {
 			avatar.x += 200 * deltaTime;
 			currentFrame = walkRightAnimation.getKeyFrame(stateTime, true);
 		} else {
@@ -165,7 +182,8 @@ public class BubbleDemo extends ApplicationAdapter {
 		if (avatar.x > 800 - 36) {
 			avatar.x = 800 - 36;
 		}
-		if (Gdx.input.isKeyPressed(Keys.SPACE) && !spike.isAlive) {
+		if ((Gdx.input.isKeyPressed(Keys.SPACE) || secondFingerTouching)
+				&& !spike.isAlive) {
 			shootSpike();
 		}
 		batch.setProjectionMatrix(camera.combined);
@@ -174,16 +192,23 @@ public class BubbleDemo extends ApplicationAdapter {
 		batch.draw(currentFrame, avatar.x, avatar.y);
 		for (Bubble bub : bubbleArr) {
 			if (bub.isAlive) {
-				batch.draw(bubbleImage, bub.body.x, bub.body.y);
+				batch.draw(bubbleImage, bub.body.x, bub.body.y, bub.size,
+						bub.size);
 			}
 		}
-		if(spike.isAlive) {
-			batch.draw(spikeAnimation.getKeyFrame(stateTime, true), spike.spikeBody.x, spike.spikeBody.y);
+		for (int i = 0; i < life; i++) {
+			batch.draw(lifeImage, (10 + 20 * i), 10);
+		}
+		if (spike.isAlive) {
+			batch.draw(spikeAnimation.getKeyFrame(stateTime, true),
+					spike.spikeBody.x, spike.spikeBody.y);
 
 		}
+		scoreFont.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+		scoreFont.draw(batch, scoreStr, 700, 30);
 		camera.update();
 		batch.end();
-		touchPos.x = avatar.x + 32;
+		touchPos.x = avatar.x + avatar.width;
 		stepWorld();
 	}
 
@@ -192,8 +217,10 @@ public class BubbleDemo extends ApplicationAdapter {
 		for (Bubble tempBub : bubbleArr) {
 			if (tempBub.isAlive) {
 				isAnyBubbleAlive = true;
+				if (checkAvatarHit(tempBub)) {
+					break;
+				}
 				checkWallCollusion(tempBub);
-				checkAvatarHit(tempBub);
 				checkSpikeHit(tempBub);
 				tempBub.body.x += tempBub.speed.x * deltaTime;
 				tempBub.body.y += tempBub.speed.y * deltaTime;
@@ -206,7 +233,7 @@ public class BubbleDemo extends ApplicationAdapter {
 		}
 		if (spike.isAlive) {
 			spike.spikeBody.y += spike.speed.y * deltaTime;
-			if(spike.spikeBody.y > 480){
+			if (spike.spikeBody.y > 480) {
 				spike.isAlive = false;
 			}
 		}
@@ -214,56 +241,81 @@ public class BubbleDemo extends ApplicationAdapter {
 
 	private void createBubbles() {
 		diffLevel++;
-		freeBubIndex = diffLevel + 1;
-		int temp = diffLevel;
-		while (temp >= 0) {
-			bubbleArr.get(temp--).reset();
+		if (diffLevel % 4 == 0)
+			life++;
+		int temp = 0;
+		while (temp < diffLevel) {
+			bubbleArr.add(bubblePool.obtain());
+			temp++;
 		}
+		upLevelMusic.play();
 	}
 
 	private void checkWallCollusion(Bubble bub) {
-		if (bub.body.x < 0 + 8) {
-			bub.body.x = 0 + 8;
+		if (bub.body.x < 12) {
+			bub.body.x = 12;
 			bub.speed.x = -bub.speed.x;
 		}
-		if (bub.body.x > 800 - 8) {
-			bub.body.x = 800 - 8;
+		if (bub.body.x > 788 - bub.size) {
+			bub.body.x = 788 - (bub.size);
 			bub.speed.x = -bub.speed.x;
 		}
-		if (bub.body.y < 0 + bub.size) {
-			bub.body.y = 0 + bub.size;
+		if (bub.body.y < 58) {
+			bub.body.y = 58;
 			bub.speed.y = -bub.speed.y;
 		}
 		if (bub.body.y > 480 - bub.size) {
-			bub.body.y = 480 - (int) bub.size;
+			bub.body.y = 480 - bub.size;
 			bub.speed.y = -bub.speed.y;
 		}
 	}
 
-	public void checkAvatarHit(Bubble tempBub) {
+	public boolean checkAvatarHit(Bubble tempBub) {
 		if (tempBub.body.overlaps(avatar)) {
+			playerHitSound.play();
+			Gdx.input.vibrate(1500);
+			life--;
 			create();
+			return true;
 		}
+		return false;
 	}
 
 	public void checkSpikeHit(Bubble tempBub) {
 		if (spike.spikeBody.overlaps(tempBub.body)) {
+			score += (100 + (25 * (tempBub.hitCount - 1)));
 			spike.isAlive = false;
 			spike.spikeBody.y = -480;
-			// spike.hit(bubbleArr, freeBubIndex);
-			if (tempBub.size < 8) {
+			if (tempBub.hitCount >= 3) {
 				tempBub.kill();
+				bubbleArr.removeValue(tempBub, false);
 				bubblePool.free(tempBub);
 			} else {
 				bubbleArr.add(bubblePool.obtain());
 				tempBub.pop(bubbleArr.peek());
 			}
+			popMusic.play();
 		}
 	}
 
 	public void shootSpike() {
-		spike.spikeBody.y = -480;
+		spike.spikeBody.y = -480 + avatar.y;
 		spike.isAlive = true;
-		spike.spikeBody.x = avatar.x;
+		spike.spikeBody.x = avatar.x + 11;
 	}
+
+	@Override
+	public void dispose() {
+		playerHitSound.dispose();
+		startMusic.dispose();
+		backMusic.dispose();
+		upLevelMusic.dispose();
+		popMusic.dispose();
+		batch.dispose();
+		backGround.dispose();
+		lifeImage.dispose();
+		bubbleImage.dispose();
+		scoreFont.dispose();
+	}
+
 }
