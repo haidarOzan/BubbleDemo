@@ -1,0 +1,20 @@
+
+rope.png
+size: 32,498
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+rope1_m
+  rotate: false
+  xy: 2, 2
+  size: 14, 496
+  orig: 14, 496
+  offset: 0, 0
+  index: -1
+rope2_m
+  rotate: false
+  xy: 18, 2
+  size: 14, 496
+  orig: 14, 496
+  offset: 0, 0
+  index: -1

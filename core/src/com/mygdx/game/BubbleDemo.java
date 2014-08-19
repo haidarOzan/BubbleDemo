@@ -273,7 +273,6 @@ public class BubbleDemo extends ApplicationAdapter {
 	public boolean checkAvatarHit(Bubble tempBub) {
 		if (tempBub.body.overlaps(avatar)) {
 			playerHitSound.play();
-			Gdx.input.vibrate(1500);
 			life--;
 			create();
 			return true;
