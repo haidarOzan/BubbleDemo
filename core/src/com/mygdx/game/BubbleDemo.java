@@ -83,8 +83,8 @@ public class BubbleDemo extends ApplicationAdapter {
 					.newMusic(Gdx.files.internal("sounds/pop2.mp3"));
 			batch = new SpriteBatch();
 			backGround = new Texture(Gdx.files.internal("images/BG.JPG"));
-			lifeImage = new Texture(Gdx.files.internal("images/29.png"));
-			bubbleImage = new Texture(Gdx.files.internal("images/green1.png"));
+			lifeImage = new Texture(Gdx.files.internal("images/29.PNG"));
+			bubbleImage = new Texture(Gdx.files.internal("images/green1.PNG"));
 			camera = new OrthographicCamera();
 			spike = new Spike();
 			touchPos = new Vector3();
@@ -241,7 +241,7 @@ public class BubbleDemo extends ApplicationAdapter {
 
 	private void createBubbles() {
 		diffLevel++;
-		if (diffLevel % 4 == 0)
+		if (diffLevel % 2 == 0)
 			life++;
 		int temp = 0;
 		while (temp < diffLevel) {
