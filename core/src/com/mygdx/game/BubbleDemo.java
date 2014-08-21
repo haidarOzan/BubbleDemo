@@ -84,7 +84,7 @@ public class BubbleDemo extends ApplicationAdapter {
 			batch = new SpriteBatch();
 			backGround = new Texture(Gdx.files.internal("images/BG.JPG"));
 			lifeImage = new Texture(Gdx.files.internal("images/29.PNG"));
-			bubbleImage = new Texture(Gdx.files.internal("images/green1.PNG"));
+			bubbleImage = new Texture(Gdx.files.internal("images/green1.png"));
 			camera = new OrthographicCamera();
 			spike = new Spike();
 			touchPos = new Vector3();
@@ -179,7 +179,7 @@ public class BubbleDemo extends ApplicationAdapter {
 		if (avatar.x < 0) {
 			avatar.x = 0;
 		}
-		if (avatar.x > 800 - 36) {
+		else if (avatar.x > 800 - 36) {
 			avatar.x = 800 - 36;
 		}
 		if ((Gdx.input.isKeyPressed(Keys.SPACE) || secondFingerTouching)
